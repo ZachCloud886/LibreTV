@@ -1,4 +1,4 @@
-import { AsyncLocalStorage } from 'node:async_hooks';测
+import { AsyncLocalStorage } from 'node:async_hooks';
 import type { LookupAddress } from 'node:dns';
 import { lookup as callbackLookup } from 'node:dns';
 import dns from 'node:dns/promises';
