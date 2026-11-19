@@ -253,7 +253,13 @@ export function installFetchSSRFProtection(): void {
       agent.close().catch(() => {});
       return res as unknown as Response;
     } catch (err) {
-      agent.destroy().catch(() => {});
+        agent.destroy().catch(() => {});
+      const msg = err instanceof Error ? err.message : String(err);
+      const code = (err as { code?: string })?.code ?? '';
+      if (msg.includes('ALPNProtocols') || code === 'ERR_OPTION_NOT_IMPLEMENTED') {
+          const { dispatcher: _d, ...restInit } = (init ?? {}) as Record<string, unknown>;
+        return originalFetch(input, restInit as RequestInit);
+      }
       throw err;
     }
   };
