@@ -1,4 +1,4 @@
-import { AsyncLocalStorage } from 'node:async_hooks';
+import { AsyncLocalStorage } from 'node:async_hooks';测
 import type { LookupAddress } from 'node:dns';
 import { lookup as callbackLookup } from 'node:dns';
 import dns from 'node:dns/promises';
@@ -241,7 +241,20 @@ export function installFetchSSRFProtection(): void {
     }
 
     // 在受保护作用域内，如果未提供专属 dispatcher，自动注入安全专用的 Agent
-    const agent = createSSRFAgent({ allowPrivate: ctx.allowPrivate });
+    // Cloudflare Workers: new Agent()/buildConnector() 本身就可能因 ALPNProtocols
+    // 未实现而抛出（构造在 try 之外会直接漏出），先在这里兜底，改用原生 fetch。
+    let agent: Agent;
+    try {
+        agent = createSSRFAgent({ allowPrivate: ctx.allowPrivate});
+    } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+      const code = (err as { code?: string })?.code ?? '';
+      if (msg.includes('ALPNProtocols') || code === 'ERR_OPTION_NOT_IMPLEMENTED') {
+          const { dispatcher: _d, ...restInit } = (init ?? {}) as Record<string, unknown>;
+        return originalFetch(input, restInit as RequestInit);
+      }
+      throw err;
+    }
     try {
       // input/init 走 undici 自己的重载签名：DOM 的 Request 类型与 undici 的
       // Request 类型在 duplex 上要求不同，直接传会报类型不兼容，这里只是同族对象互转
